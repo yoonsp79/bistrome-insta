@@ -382,9 +382,12 @@ def main():
                     reply_parameters={"message_id": st["preview_msg"], "allow_sending_without_reply": True})
                 st["reminded"] = True
             if st["status"] == "approved" and t >= at:
-                if not TOKEN:
-                    say("⚠️ 인스타 연결 토큰이 설정되지 않아 게시하지 못했습니다.")
+                if not TOKEN:  # 10분마다 같은 경고가 가지 않도록 한 번만 알린다
+                    if not state.get("no_token_warned"):
+                        say("⚠️ 인스타 연결이 아직 안 돼서 승인된 게시물을 올리지 못하고 있습니다. 연결되면 바로 올라갑니다.")
+                        state["no_token_warned"] = True
                     break
+                state.pop("no_token_warned", None)
                 try:
                     st["media_id"], st["permalink"] = publish(p)
                     st["status"], st["published_at"] = "published", now().isoformat()
