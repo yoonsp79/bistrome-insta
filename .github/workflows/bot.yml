@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "run = 평소 실행, check = 연결 확인, preview-next = 다음 게시물 미리보기 보내기"
+        description: "run = 평소 실행, check = 연결 확인, preview-next = 다음 게시물 미리보기 보내기, dry-publish = 실제 게시 없이 게시 준비까지 시험"
         default: run
         type: choice
-        options: [run, check, preview-next]
+        options: [run, check, preview-next, dry-publish]
 
 permissions:
   contents: write

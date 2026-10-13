@@ -318,10 +318,8 @@ def find_existing(p):
             return m
 
 
-def publish(p):
-    found = find_existing(p)
-    if found:
-        return found["id"], found.get("permalink", "")
+def prepare(p):
+    """인스타가 사진을 가져가 게시 준비를 마친 컨테이너 ID를 돌려준다 (아직 게시 전)."""
     uid, urls = ig_user_id(), [RAW + i for i in p["images"]]
     if len(urls) == 1:
         cid = ig("POST", f"{uid}/media", image_url=urls[0], caption=p["caption"])["id"]
@@ -331,7 +329,15 @@ def publish(p):
             wait_ready(k)
         cid = ig("POST", f"{uid}/media", media_type="CAROUSEL", children=",".join(kids), caption=p["caption"])["id"]
     wait_ready(cid)
-    mid = ig("POST", f"{uid}/media_publish", creation_id=cid)["id"]
+    return cid
+
+
+def publish(p):
+    found = find_existing(p)
+    if found:
+        return found["id"], found.get("permalink", "")
+    cid = prepare(p)
+    mid = ig("POST", f"{ig_user_id()}/media_publish", creation_id=cid)["id"]
     link = ig("GET", mid, fields="permalink").get("permalink", "")
     return mid, link
 
@@ -362,6 +368,13 @@ def main():
     try:
         if mode == "check":
             check()
+            return
+        if mode == "dry-publish":  # 게시 직전 단계까지만 시험하고 실제로 올리지는 않는다
+            p = next(p for p in posts if state["posts"].get(p["id"], {}).get("status") != "published")
+            prepare(p)
+            msg = f"🧪 게시 시험 통과: '{p['title']}' 사진 {len(p['images'])}장과 캡션을 인스타가 받아 게시 준비까지 마쳤습니다. 실제로 올리지는 않았습니다."
+            print(msg)
+            say(msg)
             return
         handle_updates(state, posts)
         if mode == "preview-next":
