@@ -31,5 +31,6 @@
       "status": "pending"
     }
   },
-  "tg_offset": 795697421
+  "tg_offset": 795697421,
+  "env_token_hash": "edd38e3e45913bb5"
 }
