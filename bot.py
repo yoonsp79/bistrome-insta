@@ -42,9 +42,29 @@ def when(p):
 
 # ---------------------------------------------------------------- HTTP
 
+def secrets():
+    vals = [TOKEN, os.environ.get("IG_ACCESS_TOKEN", ""), os.environ.get("TELEGRAM_BOT_TOKEN", ""), os.environ.get("TOKEN_KEY", "")]
+    return [v for v in vals if v and len(v) >= 8]
+
+
+def scrub(text):
+    """로그, 텔레그램, state.json(공개 저장소)에 남는 글에서 비밀값을 지운다."""
+    text = str(text)
+    for v in secrets():
+        text = text.replace(v, "***")
+    return text
+
+
+def mask(value):
+    """GitHub Actions 로그에서 이 값을 가리도록 등록한다 (갱신된 토큰은 시크릿이 아니라 자동으로 가려지지 않음)."""
+    if value and os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{value}", flush=True)
+
+
 def http(method, url, params=None, json_body=None, form=None):
     if DRY:
-        print(f"[dry] {method} {url.split('/bot')[0] if '/bot' in url else url} {json_body or form or params or ''}"[:300])
+        shown = {k: ("***" if "token" in k.lower() else v) for k, v in (json_body or form or params or {}).items()}
+        print(scrub(f"[dry] {method} {url} {shown}")[:300])
         return {"ok": True, "result": {"message_id": 1}, "id": "dry", "status_code": "FINISHED", "data": []}
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -58,13 +78,15 @@ def http(method, url, params=None, json_body=None, form=None):
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:  # 오류 본문만 남기고 토큰이 든 URL은 남기지 않는다
-        raise RuntimeError(f"HTTP {e.code}: {e.read().decode(errors='replace')[:400]}") from None
+        raise RuntimeError(scrub(f"HTTP {e.code}: {e.read().decode(errors='replace')[:400]}")) from None
+    except Exception as e:  # 연결 오류 등: 메시지에 주소가 섞일 수 있어 비밀값을 지우고 다시 던진다
+        raise RuntimeError(scrub(f"{type(e).__name__}: {e}")[:400]) from None
 
 
 def tg(method, **data):
     r = http("POST", f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/{method}", json_body=data)
     if not r.get("ok"):
-        raise RuntimeError(f"telegram {method}: {r}")
+        raise RuntimeError(scrub(f"telegram {method}: {r}"))
     return r["result"]
 
 
@@ -72,7 +94,7 @@ def tg_safe(method, **data):
     try:
         return tg(method, **data)
     except Exception as e:
-        print(f"telegram {method} 실패: {e}")
+        print(scrub(f"telegram {method} 실패: {e}"))
 
 
 def say(text, **extra):
@@ -107,7 +129,7 @@ def load_token(state):
         try:
             return openssl(open(TOKEN_FILE).read(), decrypt=True)
         except Exception as e:
-            print(f"token.enc 복호화 실패: {e}")
+            print("token.enc 복호화 실패 (TOKEN_KEY가 바뀌었는지 확인)")
     return env
 
 
@@ -129,6 +151,7 @@ def refresh_token(state):
                  params={"grant_type": "ig_refresh_token", "access_token": TOKEN})
         if r.get("access_token") and not DRY:
             TOKEN = r["access_token"]
+            mask(TOKEN)
             save_token(TOKEN)
         state["token_refreshed"] = now().isoformat()
         if r.get("expires_in"):
@@ -136,7 +159,7 @@ def refresh_token(state):
         state.pop("token_warned", None)
         state.pop("token_refresh_failed", None)
     except Exception as e:
-        print(f"토큰 갱신 실패: {e}")
+        print(scrub(f"토큰 갱신 실패: {e}"))
         state["token_refresh_failed"] = now().isoformat()
         exp = state.get("token_expires")
         if exp and datetime.fromisoformat(exp) - now() < timedelta(days=10) and not state.get("token_warned"):
@@ -191,7 +214,7 @@ def refresh_preview(p, st):
            disable_web_page_preview=True, **extra)
     except Exception as e:
         if "not modified" not in str(e):
-            print(f"미리보기 수정 실패 {p['id']}: {e}")
+            print(scrub(f"미리보기 수정 실패 {p['id']}: {e}"))
 
 
 def send_preview(p, st):
@@ -209,7 +232,7 @@ def send_preview_safe(p, st):
     try:
         send_preview(p, st)
     except Exception as e:  # 사진을 못 보내도 승인은 할 수 있게 글만이라도 보낸다
-        print(f"미리보기 사진 전송 실패 {p['id']}: {e}")
+        print(scrub(f"미리보기 사진 전송 실패 {p['id']}: {e}"))
         msg = say("(사진을 불러오지 못했습니다)\n" + preview_text(p, st), reply_markup=buttons(p["id"], st["status"]))
         st["preview_msg"] = msg["message_id"]
         st["preview_sent"] = now().isoformat()
@@ -334,6 +357,7 @@ def main():
     state = json.load(open(STATE_FILE, encoding="utf-8")) if os.path.exists(STATE_FILE) else {}
     state.setdefault("posts", {})
     TOKEN = load_token(state)
+    mask(TOKEN)
 
     try:
         if mode == "check":
@@ -369,7 +393,7 @@ def main():
                     say(f"🎉 게시 완료: {p['title']}\n{st['permalink']}")
                 except Exception as e:
                     st["tries"] = st.get("tries", 0) + 1
-                    st["error"] = str(e)[:300]
+                    st["error"] = scrub(e)[:300]
                     if st["tries"] >= MAX_TRIES:
                         st["status"] = "failed"
                         refresh_preview(p, st)
