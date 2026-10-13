@@ -268,7 +268,8 @@ def handle_updates(state, posts):
         state["tg_offset"] = u["update_id"]
         if "callback_query" in u:
             cq = u["callback_query"]
-            if str((cq.get("message") or {}).get("chat", {}).get("id", cq["from"]["id"])) != CHAT:
+            # 사장님 본인(개인 대화방)이 누른 버튼만 받는다. 다른 사람이나 단체방은 무시
+            if str(cq["from"]["id"]) != CHAT or str((cq.get("message") or {}).get("chat", {}).get("id", CHAT)) != CHAT:
                 continue
             action, _, pid = cq.get("data", "").partition(":")
             p, st = by_id.get(pid), state["posts"].get(pid)
@@ -284,7 +285,7 @@ def handle_updates(state, posts):
             refresh_preview(p, st)
         elif "message" in u:
             m = u["message"]
-            if str(m["chat"]["id"]) != CHAT:
+            if str(m["chat"]["id"]) != CHAT or str(m.get("from", {}).get("id")) != CHAT:  # 사장님 개인 대화방만
                 continue
             cmd = (m.get("text") or "").strip().split()[0].lower() if m.get("text") else ""
             if cmd == "/list":
