@@ -23,7 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      # 실행이 줄 서 있다 시작돼도 직전 실행이 저장한 최신 상태를 받도록 브랜치 끝을 받는다
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
