@@ -1,0 +1,44 @@
+name: insta-bot
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run = 평소 실행, check = 연결 확인, preview-next = 다음 게시물 미리보기 보내기"
+        default: run
+        type: choice
+        options: [run, check, preview-next]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: insta-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
+        run: python3 bot.py "${{ inputs.mode || 'run' }}"
+
+      - name: Save state
+        if: always()
+        run: |
+          git add state.json token.enc 2>/dev/null || git add state.json
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "insta-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "봇 상태 저장"
+          git pull -q --rebase && git push -q
