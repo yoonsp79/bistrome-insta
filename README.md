@@ -22,3 +22,9 @@
 
 ## 시크릿 (Settings → Secrets and variables → Actions)
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `IG_ACCESS_TOKEN`, `TOKEN_KEY`
+
+## 월간 런치세트
+- 매달 **25일 오전 10시**에 봇이 다음 달 런치세트 메뉴를 물어봅니다 (28일에 한 번 더). 언제든 `/lunch`로 직접 보낼 수도 있습니다.
+- 답장 형식: 한 줄에 하나씩 `메뉴 이름 가격` (예: `알리오올리오 15000`). 구성이 다르면 첫 줄에 `구성: 식전빵 + 파스타 + 음료`.
+- 봇이 `lunch.py`로 카드 2장과 캡션을 만들어 `posts.json`에 넣고 미리보기를 보냅니다. 승인하면 **매달 1일 오전 10시**에 게시됩니다.
+- 메뉴 사진은 `photos/`에서 이름으로 찾습니다. 글꼴은 `fonts/`(Pretendard, Bodoni Moda — 둘 다 OFL 라이선스).

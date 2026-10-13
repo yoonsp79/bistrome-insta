@@ -26,6 +26,8 @@ PREVIEW_LEAD = timedelta(hours=24)
 REMIND_LEAD = timedelta(hours=2)
 REFRESH_EVERY = timedelta(days=7)
 MAX_TRIES = 3
+LUNCH_ASK_DAY, LUNCH_REMIND_DAY, LUNCH_HOUR = 25, 28, 10   # 매달 25일 10시에 다음 달 런치세트를 묻고, 28일에 한 번 더
+LUNCH_TAGS = "#창원런치세트 #창원파스타맛집 #창원점심 #창원가로수길맛집 #비스트로미"
 DOW = "월화수목금토일"
 DRY = os.environ.get("DRY_RUN") == "1"
 TOKEN = ""
@@ -255,7 +257,8 @@ HELP = ("비스트로미 인스타 봇입니다.\n"
         "· 게시 24시간 전에 미리보기와 [✅ 올리기] [⏸ 보류] 버튼을 보내드립니다.\n"
         "· 올리기를 누른 게시물만 예정 시각에 인스타에 올라갑니다.\n"
         "· 버튼을 누른 뒤 반영까지 최대 10분 정도 걸립니다.\n\n"
-        "/list 예정된 게시물 보기\n/next 다음 게시물 미리보기 받기")
+        "/list 예정된 게시물 보기\n/next 다음 게시물 미리보기 받기\n"
+        "/lunch 런치세트 메뉴 보내기 (매달 25일에 자동으로 여쭤봅니다)")
 
 
 def handle_updates(state, posts):
@@ -295,6 +298,12 @@ def handle_updates(state, posts):
                     say("미리보기를 아직 받지 않은 게시물이 없습니다. /list 로 확인하세요.")
             elif cmd in ("/start", "/help"):
                 say(HELP)
+            elif cmd == "/lunch":
+                ask_lunch(state, *lunch_target(now()))
+            elif m.get("text") and not m["text"].startswith("/") and state.get("lunch_waiting"):
+                create_lunch(state, state["lunch_waiting"], m["text"])
+            elif m.get("text") and not m["text"].startswith("/"):
+                say("런치세트 메뉴를 보내시려면 먼저 /lunch 를 눌러 주세요. 다른 명령은 /help 에서 볼 수 있어요.")
 
 
 # ---------------------------------------------------------------- instagram
@@ -342,6 +351,106 @@ def publish(p):
     return mid, link
 
 
+# ---------------------------------------------------------------- monthly lunch set
+
+def lunch_key(y, m):
+    return f"{y}-{m:02d}"
+
+
+def next_month(t):
+    return (t.year + 1, 1) if t.month == 12 else (t.year, t.month + 1)
+
+
+def lunch_target(t):
+    """15일 이후면 다음 달, 그 전이면 이번 달 런치세트."""
+    return next_month(t) if t.day >= 15 else (t.year, t.month)
+
+
+def lunch_id(y, m):
+    return f"L{y % 100:02d}{m:02d}"
+
+
+def load_doc():
+    return json.load(open(POSTS_FILE, encoding="utf-8"))
+
+
+def save_doc(doc):
+    with open(POSTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def ask_lunch(state, y, m):
+    key = lunch_key(y, m)
+    L = state.setdefault("lunch", {}).setdefault(key, {})
+    L["asked"], L["waiting"] = now().isoformat(), True
+    state["lunch_waiting"] = key
+    say(f"🍝 {m}월 런치세트 게시물을 준비할게요.\n"
+        "메뉴와 가격을 한 줄에 하나씩 답장으로 보내 주세요.\n\n"
+        "예)\n뚝배기 해산물 파스타 19000\n알리오올리오 15000\n\n"
+        "구성이 '식전빵 + 파스타 + 커피'와 다르면 첫 줄에 '구성: …'을 적어 주세요.\n"
+        f"보내 주시면 카드와 글을 만들어 미리보기를 드리고, 승인하시면 {m}월 1일 오전 10시에 올립니다.")
+
+
+def create_lunch(state, key, text):
+    import lunch
+    y, m = map(int, key.split("-"))
+    pid = lunch_id(y, m)
+    if state["posts"].get(pid, {}).get("status") == "published":
+        say(f"{m}월 런치세트는 이미 게시됐습니다.")
+        state["lunch_waiting"] = None
+        return
+    try:
+        items, setline = lunch.parse(text)
+    except ValueError as e:
+        say(f"⚠️ {e}\n\n메뉴 이름 뒤에 가격을 적어 한 줄에 하나씩 보내 주세요.\n예) 알리오올리오 15000")
+        return
+    missing = [n for n, _ in items if not lunch.photo_for(n)]
+    stem = f"lunch-{key}"
+    lunch.render(m, items, setline, os.path.join(ROOT, "img"), stem)
+    at = datetime(y, m, 1, LUNCH_HOUR, 0, tzinfo=KST)
+    if at < now() + timedelta(hours=1):  # 이미 지난 달 초라면 다음 날 오전에
+        at = (now() + timedelta(days=1)).replace(hour=LUNCH_HOUR, minute=0, second=0, microsecond=0)
+    doc = load_doc()
+    entry = {
+        "id": pid,
+        "title": f"{m}월 런치세트",
+        "publish_at": at.isoformat(),
+        "images": [f"img/{stem}_1.jpg", f"img/{stem}_2.jpg"],
+        "caption": lunch.caption(m, items, setline, doc.get("footer", ""), LUNCH_TAGS),
+        "created_at": now().isoformat(),
+        "preview_early": True,
+    }
+    doc["posts"] = [p for p in doc["posts"] if p["id"] != pid] + [entry]
+    save_doc(doc)
+    old = state["posts"].get(pid, {})
+    if old.get("preview_msg"):
+        tg_safe("editMessageText", chat_id=CHAT, message_id=old["preview_msg"], text="(새 메뉴로 다시 만들었습니다. 아래 새 미리보기를 확인해 주세요.)")
+    state["posts"][pid] = {"status": "pending"}
+    state["lunch"].setdefault(key, {})["waiting"] = False
+    state["lunch_waiting"] = None
+    note = f"\n(사진이 없는 메뉴: {', '.join(missing)} — 사진 없이 글자로 표시됩니다)" if missing else ""
+    say(f"✅ {m}월 런치세트 게시물을 만들었어요: " + ", ".join(f"{n} {p:,}원" for n, p in items)
+        + f"\n10분 안에 미리보기를 보내드릴게요. 게시 예정 {when(entry)}{note}")
+
+
+def lunch_schedule(state, posts):
+    t = now()
+    if t.day < LUNCH_ASK_DAY or t.hour < LUNCH_HOUR:
+        return
+    y, m = next_month(t)
+    key = lunch_key(y, m)
+    if any(p["id"] == lunch_id(y, m) for p in posts):
+        return
+    L = state.setdefault("lunch", {}).get(key, {})
+    if not L.get("asked"):
+        ask_lunch(state, y, m)
+    elif L.get("waiting") and not L.get("reminded") and t.day >= LUNCH_REMIND_DAY:
+        say(f"⏰ {m}월 런치세트 메뉴를 아직 못 받았어요. 메뉴와 가격을 한 줄에 하나씩 보내 주시면 {m}월 1일에 올려 드릴게요.")
+        state["lunch"][key]["reminded"] = True
+        state["lunch_waiting"] = key
+
+
 # ---------------------------------------------------------------- main
 
 def check():
@@ -369,6 +478,10 @@ def main():
         if mode == "check":
             check()
             return
+        if mode == "render-test":  # 클라우드에서 런치 카드가 그려지는지만 확인 (저장·게시 없음)
+            import lunch
+            print(lunch.render(11, [("뚝배기 해산물 파스타", 19000), ("알리오올리오", 15000)], lunch.DEFAULT_SET, "/tmp", "t"))
+            return
         if mode == "dry-publish":  # 게시 직전 단계까지만 시험하고 실제로 올리지는 않는다
             p = next(p for p in posts if state["posts"].get(p["id"], {}).get("status") != "published")
             prepare(p)
@@ -381,13 +494,15 @@ def main():
             nxt = next((p for p in posts if not state["posts"].get(p["id"], {}).get("preview_msg")), None)
             if nxt:
                 send_preview_safe(nxt, state["posts"].setdefault(nxt["id"], {"status": "pending"}))
+        lunch_schedule(state, posts)
         t = now()
         for p in posts:
             st = state["posts"].setdefault(p["id"], {"status": "pending"})
             at = datetime.fromisoformat(p["publish_at"])
             if st["status"] in ("published", "failed"):
                 continue
-            if not st.get("preview_msg") and t >= at - PREVIEW_LEAD:
+            fresh = p.get("created_at") and t - datetime.fromisoformat(p["created_at"]) < timedelta(minutes=5)
+            if not st.get("preview_msg") and not fresh and (t >= at - PREVIEW_LEAD or p.get("preview_early")):
                 send_preview_safe(p, st)
             elif (st["status"] == "pending" and not st.get("reminded") and t >= at - REMIND_LEAD
                   and t - datetime.fromisoformat(st.get("preview_sent", "2000-01-01T00:00:00+09:00")) >= timedelta(hours=1)):

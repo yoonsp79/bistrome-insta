@@ -9,7 +9,7 @@ on:
         description: "run = 평소 실행, check = 연결 확인, preview-next = 다음 게시물 미리보기 보내기, dry-publish = 실제 게시 없이 게시 준비까지 시험"
         default: run
         type: choice
-        options: [run, check, preview-next, dry-publish]
+        options: [run, check, preview-next, dry-publish, render-test]
 
 permissions:
   contents: write
@@ -25,6 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Run bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -36,7 +40,7 @@ jobs:
       - name: Save state
         if: always()
         run: |
-          git add state.json token.enc 2>/dev/null || git add state.json
+          git add state.json posts.json img; git add token.enc 2>/dev/null || true
           if git diff --cached --quiet; then exit 0; fi
           git config user.name "insta-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
