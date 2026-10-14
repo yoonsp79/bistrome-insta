@@ -191,7 +191,7 @@ def buttons(pid, status):
 
 
 STATUS_LINE = {
-    "pending": "🕒 결정 대기 중",
+    "pending": "🕒 결정 대기 중 · 버튼은 몇 분 뒤 반영되고, 반영되면 확인 메시지가 옵니다",
     "approved": "✅ 승인됨 · 예정 시각에 올라갑니다",
     "held": "⏸ 보류됨 · 올리지 않습니다",
     "published": "🎉 게시 완료",
@@ -279,10 +279,16 @@ def handle_updates(state, posts):
             if st["status"] in ("published", "failed"):
                 tg_safe("answerCallbackQuery", callback_query_id=cq["id"], text="이미 처리된 게시물입니다.")
                 continue
-            st["status"] = "approved" if action == "ok" else "held"
+            before, st["status"] = st["status"], "approved" if action == "ok" else "held"
             tg_safe("answerCallbackQuery", callback_query_id=cq["id"],
                     text="승인했습니다." if action == "ok" else "보류했습니다.")
             refresh_preview(p, st)
+            # 버튼은 다음 실행 때 반영되므로, 반영됐다는 걸 새 메시지로 알린다 (같은 버튼을 여러 번 눌러도 한 번만)
+            if st["status"] != before:
+                done = (f"✅ 승인 확인: '{p['title']}' — {when(p)}에 올라갑니다." if st["status"] == "approved"
+                        else f"⏸ 보류 확인: '{p['title']}'은(는) 올리지 않습니다. 다시 올리려면 미리보기에서 [올리기]를 누르세요.")
+                reply = {"reply_parameters": {"message_id": st["preview_msg"], "allow_sending_without_reply": True}} if st.get("preview_msg") else {}
+                tg_safe("sendMessage", chat_id=CHAT, text=done, **reply)
         elif "message" in u:
             m = u["message"]
             if str(m["chat"]["id"]) != CHAT or str(m.get("from", {}).get("id")) != CHAT:  # 사장님 개인 대화방만
