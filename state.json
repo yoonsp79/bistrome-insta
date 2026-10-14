@@ -1,7 +1,7 @@
 {
   "posts": {
     "01": {
-      "status": "pending",
+      "status": "approved",
       "preview_msg": 10,
       "preview_sent": "2026-10-14T05:23:07.385048+09:00"
     },
@@ -33,7 +33,7 @@
       "status": "pending"
     }
   },
-  "tg_offset": 795697423,
+  "tg_offset": 795697426,
   "env_token_hash": "edd38e3e45913bb5",
   "token_refreshed": "2026-10-14T05:23:08.758065+09:00",
   "token_expires": "2026-12-12T23:03:32.758087+09:00"
