@@ -1,9 +1,12 @@
 {
   "posts": {
     "01": {
-      "status": "approved",
+      "status": "published",
       "preview_msg": 10,
-      "preview_sent": "2026-10-14T05:23:07.385048+09:00"
+      "preview_sent": "2026-10-14T05:23:07.385048+09:00",
+      "media_id": "18488290207105069",
+      "permalink": "https://www.instagram.com/p/DegPBBpDr_6/",
+      "published_at": "2026-10-15T14:43:35.111591+09:00"
     },
     "02": {
       "status": "pending"
