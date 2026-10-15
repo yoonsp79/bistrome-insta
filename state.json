@@ -9,7 +9,9 @@
       "published_at": "2026-10-15T14:43:35.111591+09:00"
     },
     "02": {
-      "status": "pending"
+      "status": "pending",
+      "preview_msg": 21,
+      "preview_sent": "2026-10-15T19:00:48.135491+09:00"
     },
     "03": {
       "status": "pending"
