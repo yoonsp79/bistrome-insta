@@ -1,11 +1,11 @@
 {
   "posts": {
     "01": {
-      "status": "approved",
+      "status": "failed",
       "preview_msg": 10,
       "preview_sent": "2026-10-14T05:23:07.385048+09:00",
-      "tries": 2,
-      "error": "HTTP 400: {\"error\":{\"message\":\"API access blocked.\",\"type\":\"OAuthException\",\"code\":200,\"fbtrace_id\":\"AisL-Myc6blVGWNpl3QRJoy\"}}"
+      "tries": 3,
+      "error": "HTTP 400: {\"error\":{\"message\":\"API access blocked.\",\"type\":\"OAuthException\",\"code\":200,\"fbtrace_id\":\"AJUdQDv54r3-JTMq7DUa1b6\"}}"
     },
     "02": {
       "status": "pending"
