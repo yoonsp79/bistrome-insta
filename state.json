@@ -9,10 +9,13 @@
       "published_at": "2026-10-15T14:43:35.111591+09:00"
     },
     "02": {
-      "status": "approved",
+      "status": "published",
       "preview_msg": 21,
       "preview_sent": "2026-10-15T19:00:48.135491+09:00",
-      "reminded": true
+      "reminded": true,
+      "media_id": "18131516881834263",
+      "permalink": "https://www.instagram.com/p/DejRTxvEWM-/",
+      "published_at": "2026-10-16T19:01:22.071989+09:00"
     },
     "03": {
       "status": "pending"
