@@ -18,7 +18,9 @@
       "published_at": "2026-10-16T19:01:22.071989+09:00"
     },
     "03": {
-      "status": "pending"
+      "status": "pending",
+      "preview_msg": 26,
+      "preview_sent": "2026-10-17T11:00:41.965525+09:00"
     },
     "04": {
       "status": "pending"
