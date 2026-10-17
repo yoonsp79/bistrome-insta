@@ -18,7 +18,7 @@
       "published_at": "2026-10-16T19:01:22.071989+09:00"
     },
     "03": {
-      "status": "pending",
+      "status": "approved",
       "preview_msg": 26,
       "preview_sent": "2026-10-17T11:00:41.965525+09:00"
     },
@@ -44,7 +44,7 @@
       "status": "pending"
     }
   },
-  "tg_offset": 795697427,
+  "tg_offset": 795697428,
   "env_token_hash": "edd38e3e45913bb5",
   "token_refreshed": "2026-10-14T05:23:08.758065+09:00",
   "token_expires": "2026-12-12T23:03:32.758087+09:00"
