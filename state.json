@@ -28,7 +28,8 @@
     "04": {
       "status": "pending",
       "preview_msg": 30,
-      "preview_sent": "2026-10-19T11:00:42.094266+09:00"
+      "preview_sent": "2026-10-19T11:00:42.094266+09:00",
+      "reminded": true
     },
     "05": {
       "status": "pending"
